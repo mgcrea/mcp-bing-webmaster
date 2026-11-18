@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "bing-webmaster": {
+      "command": "node",
+      "args": ["/absolute/path/to/mcp-bing-webmaster/dist/cli.js"],
+      "env": {
+        "BING_WEBMASTER_API_KEY": "...",
+        "BING_WEBMASTER_ALLOW_WRITES": ""
+      }
+    }
+  }
+}
