@@ -154,7 +154,7 @@ describe("the other write tools", () => {
     expect(h.calls).toHaveLength(0);
   });
 
-  it("sends the normalized URL, and refuses credentials or a subdomain", async () => {
+  it("sends the normalized URL, and refuses credentials, another host or another port", async () => {
     const h = await connect(WRITE_ENV, { routes: ok });
     await h.call("bing_webmaster_fetch_url", {
       site: "example.com",
@@ -166,13 +166,24 @@ describe("the other write tools", () => {
     });
     for (const url of [
       "https://user:pw@example.com/a",
-      "https://shop.example.com/a",
+      "https://example.org/a",
+      "https://example.com.evil.com/a",
       "https://example.com:8443/a",
     ]) {
       const res = await h.call("bing_webmaster_submit_urls", { site: "example.com", urls: [url] });
       expect(res.isToolError, url).toBe(true);
     }
     expect(h.callsTo("SubmitUrl")).toHaveLength(0);
+  });
+
+  it("submits a subdomain URL for a root site, which Bing files under it (seen live)", async () => {
+    const h = await connect(WRITE_ENV, { routes: ok });
+    const res = await h.call("bing_webmaster_submit_urls", {
+      site: "example.com",
+      urls: ["https://shop.example.com/a"],
+    });
+    expect(res.isToolError).toBeFalsy();
+    expect(h.callsTo("SubmitUrl")[0]?.body).toMatchObject({ url: "https://shop.example.com/a" });
   });
 });
 

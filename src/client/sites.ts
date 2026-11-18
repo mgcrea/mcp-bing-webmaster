@@ -107,11 +107,15 @@ export type OwnUrl = { ok: true; href: string } | { ok: false; reason: string };
  * Whether `url` is one of `siteUrl`'s own pages, and if so its normalized form
  * (`new URL(u).href`) — which is what gets sent, never the raw string.
  *
- * An absolute http(s) URL on exactly the site's host, under its path. Either
- * scheme is accepted, since Bing treats a site's http and https pages as that
- * site's; anything else is refused:
- * - another host, a subdomain included: Bing registers `www.example.com`,
- *   `example.com` and `shop.example.com` as separate sites;
+ * An absolute http(s) URL on the site's host under its path, or — for a site
+ * registered at a host root — on a subdomain of that host. Either scheme is
+ * accepted, since Bing treats a site's http and https pages as that site's.
+ * Subdomains are accepted because Bing files them under the root site: seen
+ * live on 2026-11-18, where `https://mgcrea.io/` reports traffic, URL info and
+ * sitemaps for `contour.mgcrea.io` and `r2-explorer.mgcrea.io`. Refused:
+ * - any other host, including the parent (`example.com` for a site registered
+ *   as `www.example.com`), a sibling, and a look-alike (`example.com.evil.com`);
+ * - a subdomain of a site registered under a path (`https://acme.io/blog/`);
  * - a port other than the site's, which is another origin;
  * - credentials (`https://user:pw@example.com/`), which have no business in a
  *   URL handed to a crawler.
@@ -131,8 +135,19 @@ export const ownUrl = (url: string, siteUrl: string): OwnUrl => {
   if (target.username || target.password) return { ok: false, reason: "contains credentials" };
   if (target.port !== site.port)
     return { ok: false, reason: `port ${target.port || "default"} is not the site's` };
-  if (target.hostname.toLowerCase() !== site.host) {
-    return { ok: false, reason: `host ${target.hostname} is not ${site.host}` };
+  const host = target.hostname.toLowerCase();
+  if (host !== site.host) {
+    const subdomain = site.path === "" && host.endsWith(`.${site.host}`);
+    if (!subdomain) {
+      return {
+        ok: false,
+        reason:
+          site.path === ""
+            ? `host ${target.hostname} is neither ${site.host} nor one of its subdomains`
+            : `host ${target.hostname} is not ${site.host}`,
+      };
+    }
+    return { ok: true, href: target.href };
   }
   const underPath =
     site.path === "" ||

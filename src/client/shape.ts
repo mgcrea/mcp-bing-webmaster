@@ -654,7 +654,9 @@ export const shapeUrlInfo = (payload: unknown): Rec => {
   const p = isRecord(payload) ? payload : {};
   return omitEmpty({
     url: str(p.Url),
-    http_status: num(p.HttpStatus),
+    // Bing answers 0 for pages it has crawled and indexed (seen live on
+    // 2026-11-18 for two 200 pages): it means "not reported", not a status.
+    http_status: num(p.HttpStatus) || undefined,
     is_page: bool(p.IsPage),
     discovery_date: str(p.DiscoveryDate),
     last_crawled_date: str(p.LastCrawledDate),

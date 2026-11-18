@@ -45,6 +45,12 @@ export const CALL_DEADLINE_MS = 45_000;
 const THROTTLE_CODES = new Set([4, 5]);
 /** InternalError. */
 const INTERNAL_CODE = 1;
+/**
+ * UnknownError. Transient in practice: seen live on 2026-11-18, a GetUrlInfo
+ * answered HTTP 400 UnknownError and the identical call succeeded straight
+ * after. Retried for GETs only, like every other transient answer.
+ */
+const UNKNOWN_CODE = 2;
 
 /**
  * The tool call a client request belongs to. tools/util.ts `run()` enters it
@@ -268,7 +274,8 @@ export class BingWebmasterClient {
       const throttled =
         res.status === 429 || (bing.code !== undefined && THROTTLE_CODES.has(bing.code));
       const retryAfter = retryAfterMs(res);
-      const transient = throttled || res.status >= 500 || bing.code === INTERNAL_CODE;
+      const transient =
+        throttled || res.status >= 500 || bing.code === INTERNAL_CODE || bing.code === UNKNOWN_CODE;
       if (isGet && transient && attempt < this.maxRetries) {
         const delay = retryAfter ?? backoffMs(attempt);
         if (retryAfter === undefined || retryAfter <= MAX_RETRY_AFTER_MS) {

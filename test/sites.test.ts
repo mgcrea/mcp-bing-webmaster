@@ -133,12 +133,33 @@ describe("parseSite / ownUrl", () => {
     expect(href("https://acme.io/blog", "https://acme.io/blog/")).toBe("https://acme.io/blog");
   });
 
-  it("refuses another host — www, apex and subdomains are separate Bing sites", () => {
-    expect(ownUrl("http://www.example.com/a", "https://example.com/")).toMatchObject({ ok: false });
+  it("accepts subdomains of a root site, as Bing files them under it (seen live)", () => {
+    expect(href("https://contour.mgcrea.io/", "https://mgcrea.io/")).toBe(
+      "https://contour.mgcrea.io/",
+    );
+    expect(href("http://www.example.com/a", "https://example.com/")).toBe(
+      "http://www.example.com/a",
+    );
+    expect(href("https://a.b.example.com/x", "https://example.com/")).toBe(
+      "https://a.b.example.com/x",
+    );
+    // A subdomain still has to be on the site's port and carry no credentials.
+    expect(ownUrl("https://shop.example.com:8443/a", "https://example.com/")).toMatchObject({
+      ok: false,
+    });
+    expect(ownUrl("https://u:p@shop.example.com/a", "https://example.com/")).toMatchObject({
+      ok: false,
+    });
+  });
+
+  it("refuses a parent, a sibling, a look-alike, and subdomains of a path site", () => {
     expect(ownUrl("https://example.com/a", "https://www.example.com/")).toMatchObject({
       ok: false,
     });
     expect(ownUrl("https://shop.example.com/a", "https://www.example.com/")).toMatchObject({
+      ok: false,
+    });
+    expect(ownUrl("https://shop.acme.io/blog/a", "https://acme.io/blog/")).toMatchObject({
       ok: false,
     });
     expect(ownUrl("https://evil.com/a", "https://example.com/")).toMatchObject({ ok: false });

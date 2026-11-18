@@ -165,6 +165,18 @@ describe("index and crawl tools", () => {
     });
   });
 
+  it("get_url_info drops HttpStatus 0, which Bing answers for crawled pages (seen live)", async () => {
+    const h = await connect(READ_ENV, {
+      routes: [on("GetUrlInfo", d({ HttpStatus: 0, IsPage: true, Url: "https://example.com/" }))],
+    });
+    const res = await h.call("bing_webmaster_get_url_info", {
+      site: "example.com",
+      url: "https://example.com/",
+    });
+    expect(res).not.toHaveProperty("http_status");
+    expect(res).toMatchObject({ is_page: true });
+  });
+
   it("get_fetched_url lists without a url and details with one", async () => {
     const h = await connect(READ_ENV, {
       routes: [

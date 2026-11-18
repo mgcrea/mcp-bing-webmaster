@@ -1,6 +1,6 @@
 {
   "name": "@mgcrea/mcp-bing-webmaster",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Model Context Protocol server for Bing Webmaster Tools: search traffic, crawl health, URL info, keyword research and URL submission",
   "keywords": [
     "bing-webmaster-tools",

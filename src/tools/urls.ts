@@ -24,8 +24,8 @@ const ownUrls = (urls: string[], siteUrl: string): string[] => {
       `${foreign.length} of ${urls.length} URL(s) do not belong to ${siteUrl}. Nothing was submitted.`,
       {
         remedy:
-          "Every URL must be an absolute http(s) URL on exactly the site's host (not a subdomain, " +
-          "which Bing treats as another site), on its port, under its path, with no credentials. " +
+          "Every URL must be an absolute http(s) URL on the site's host or, for a site registered " +
+          "at a host root, one of its subdomains; on its port, under its path, with no credentials. " +
           "Submit other sites' URLs with their own `site`.",
         details: {
           foreign_urls: foreign.slice(0, 20).map((c) => ({

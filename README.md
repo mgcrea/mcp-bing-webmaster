@@ -29,8 +29,9 @@ all.
 - **The key stays secret.** Bing puts the API key in the URL. The server never logs, returns or
   embeds a request URL in an error, and it masks the key in any upstream text that echoes it.
 - **Safe submissions.** `bing_webmaster_submit_urls` checks every URL before sending any: it
-  must be on exactly the site's host (Bing treats `www.`, the apex and subdomains as separate
-  sites), on its port, under its path, and carry no credentials. URLs are then normalized and
+  must be on the site's host or, for a site registered at a host root, one of its subdomains
+  (Bing files `blog.example.com` under `https://example.com/`), on its port, under its path,
+  and carry no credentials. URLs are then normalized and
   deduplicated. The tool uses `SubmitUrl` or `SubmitUrlBatch` as appropriate. A POST is
   never retried automatically, not even after a throttle, because a retry could race the
   model's own retry and spend quota twice. When it times out or gets a 5xx, the error says the
@@ -156,31 +157,31 @@ blocked URLs, site roles, crawl settings, site moves, query parameters, deep lin
 
 ## Verify live
 
-This server was built against the documentation, with no API key, so none of the following
-has been seen on the wire yet. Each item is handled defensively, but check it on the first
-real calls with `live_call.mjs`:
+**Checked against the real API on 2026-11-18** (one site, read tools only):
 
-- **The `{"d": …}` envelope** on every answer, and `{"d": null}` from the void methods
-  (`SubmitUrl`, `SubmitFeed`, ...). An unwrapped payload is tolerated.
-- **Dates**: `/Date(ms-0700)/` and `/Date(ms)/`, whether day buckets are local midnight, and
+- The `{"d": …}` envelope and `/Date(ms-0700)/` dates parse on every read method.
+- `GetRankAndTrafficStats` and `GetCrawlStats` come back daily. `GetQueryStats`,
+  `GetPageStats`, `GetQueryPageStats` and `GetPageQueryStats` come back weekly, so a 28-day
+  window held two buckets, as `buckets` reports.
+- Page rows carry the page URL, and unquoted string parameters (`?page=https://…`) work.
+- `GetKeywordStats` and `GetRelatedKeywords` (with `YYYY-MM-DD` dates) return data. A
+  low-volume keyword returns nothing rather than zeros.
+- **Subdomains belong to the root site.** `https://mgcrea.io/` reports traffic, URL info and
+  sitemaps for `contour.mgcrea.io`, so submissions accept a root site's subdomains.
+- `GetUrlInfo` answers `HttpStatus: 0` for crawled pages, so `http_status` is omitted then.
+- `UnknownError` (HTTP 400) is transient: the same call succeeded straight after, so GETs
+  retry it.
+- An unknown site fails with the list of sites the key reaches.
+
+- `SubmitUrl` works, and `DailyQuota` / `MonthlyQuota` are **what is left**: one submission
+  took them from 100 / 1,300 to 99 / 1,299.
+
+**Still unverified:**
+
+- The other write methods (`SubmitUrlBatch`, `SubmitFeed`, `RemoveFeed`, `FetchUrl`).
+- Which error code a spent URL quota returns (assumed `NotAllowed`).
+- The `Issues` flags in `GetCrawlIssues` (the test site had none), positions of 0 or -1, and
   `/Date(-62135596800000)/` meaning "no date".
-- **Bucket size and history depth** of `GetQueryStats`, `GetPageStats`, `GetQueryPageStats`,
-  `GetPageQueryStats` (documented as updated weekly), `GetRankAndTrafficStats` and
-  `GetCrawlStats` (updated daily, about six months). Every answer reports the `granularity` it
-  detected.
-- **Which field holds the page URL** in `GetPageStats` and `GetQueryPageStats` rows. The docs
-  suggest `Query`, and the server takes `Page` or `Url` first if Bing sends one.
-- **Error bodies**: `{"ErrorCode": n, "Message": "..."}` with HTTP 400, and which code a spent
-  URL quota returns (assumed `NotAllowed`).
-- **String parameters sent unquoted** (`?page=https://…`). The docs' JSON samples JSON-quote
-  some of them (`?page="https:\/\/…"`). WCF accepts both forms in principle.
-- **`GetRelatedKeywords` dates** sent as `YYYY-MM-DD`. The docs give no sample for this
-  method's `DateTime` parameters.
-- **`DailyQuota` / `MonthlyQuota`**: whether they are what is left or the limit. The sample
-  (5 per day, 24 per month) suggests what is left.
-- **The `Issues` flags** in `GetCrawlIssues`: a number in JSON, names in the old POX format.
-  Both are decoded.
-- **Positions of 0 or -1** for "no position", which are excluded from averages.
 
 ```bash
 node ../.studio/mcp-template/skill/scripts/live_call.mjs --server . --env-file .env --list \

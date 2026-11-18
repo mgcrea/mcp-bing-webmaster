@@ -120,6 +120,28 @@ describe("error mapping", () => {
     expect(h.callsTo("GetUrlSubmissionQuota")).toHaveLength(3);
   });
 
+  it("retries a GET on UnknownError, which Bing answers transiently (seen live)", async () => {
+    let n = 0;
+    const flaky = on("GetUrlSubmissionQuota", () =>
+      n++ === 0 ? bingError(2, "ERROR!!! UnknownError") : d({ DailyQuota: 1, MonthlyQuota: 2 }),
+    );
+    const h = await connect(READ_ENV, { routes: [flaky] });
+    expect(await quotaTool(h)).toMatchObject({ daily_quota: 1 });
+    expect(h.callsTo("GetUrlSubmissionQuota")).toHaveLength(2);
+  });
+
+  it("never retries a POST on UnknownError", async () => {
+    const h = await connect(WRITE_ENV, {
+      routes: [on("SubmitUrl", bingError(2, "ERROR!!! UnknownError"))],
+    });
+    const res = await h.call("bing_webmaster_submit_urls", {
+      site: "example.com",
+      urls: ["https://example.com/a"],
+    });
+    expect(res.error_code).toBe("UnknownError");
+    expect(h.callsTo("SubmitUrl")).toHaveLength(1);
+  });
+
   it("gives up after BING_WEBMASTER_MAX_RETRIES", async () => {
     const h = await connect(
       { ...READ_ENV, BING_WEBMASTER_MAX_RETRIES: "2" },
